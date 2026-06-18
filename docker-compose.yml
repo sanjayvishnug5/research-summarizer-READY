@@ -1,0 +1,37 @@
+version: "3.9"
+
+# ─────────────────────────────────────────────────────────────
+#  Research Summarizer Agent — Docker Compose
+#
+#  Usage:
+#    1. Set your API keys:
+#       export ANTHROPIC_API_KEY=sk-ant-...
+#       export TAVILY_API_KEY=tvly-...
+#
+#    2. docker-compose up --build
+#
+#    3. Test:
+#       curl -X POST http://localhost:8080/api/research/summarize \
+#         -H "Content-Type: application/json" \
+#         -d '{"topic": "OpenAI GPT-4o capabilities", "maxSources": 5}'
+# ─────────────────────────────────────────────────────────────
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: research-summarizer-api
+    ports:
+      - "8080:8080"
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-demo-mode}
+      - TAVILY_API_KEY=${TAVILY_API_KEY:-demo-mode}
+      - OPENAI_MCP_URL=https://developers.openai.com/mcp
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/research/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
