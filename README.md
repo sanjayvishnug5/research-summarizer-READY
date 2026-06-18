@@ -1,14 +1,90 @@
-# Research Summarizer Agent
-### Java Spring Boot · Multi-Agent System · OpenAI MCP Integration
+Research Summarizer Agent
+ Java Spring Boot · Multi-Agent System · OpenAI MCP Integration
 
 A production-quality multi-agent research summarizer built with **Java 21 + Spring Boot 3.3**.  
 Accepts a research topic via REST API, routes it through three specialised agents, and returns a structured report.
 
----
+----------------SET UP INSTRUCTIONS---------------------------------------------
+INSTALL REQUIRED SOFTWARE
 
-## Architecture
+1. Install Java 21    -> https://adoptium.net
+2. Install Maven      -> https://maven.apache.org/download.cgi
+3. Get Anthropic key  -> https://console.anthropic.com
+4. Get Tavily key     -> https://app.tavily.com
+Install IntelliJ IDEA -> https://www.jetbrains.com/idea/download/
+5.Set Your API Keys in IntelliJ
 
-```
+ Environment Variables in Run Config 
+
+1. In IntelliJ -> top right -> click the dropdown next to the Run button
+2. Click  "Edit Configurations" 
+3. Click the **"+"** → **"Application"**
+4. Name it: `ResearchSummarizer`
+5. Main class: `com.assessment.researchsummarizer.ResearchSummarizerApplication`
+6. Under **"Environment variables"** -> click the folder icon
+7. Add these two:
+
+   Name: ANTHROPIC_API_KEY    Value: sk-ant-api03-your-key-here
+   Name: TAVILY_API_KEY       Value: tvly-your-key-here
+
+---------- BUILD AND RUN----------
+
+Using IntelliJ:
+1. Open: `src/main/java/com/assessment/researchsummarizer/ResearchSummarizerApplication.java`
+2. Click the green button next to `public static void main`
+3. Or press **Shift+F10**
+
+
+Server is now running at http://localhost:8080
+
+
+----------TEST THE API-----------
+
+ Using Swagger UI 
+
+1. Open your browser
+2. Go to: http://localhost:8080/swagger-ui.html
+3. Click "POST /api/research/summarize"
+4. Click "Try it out"
+6. Paste this in the body or type what ever you need
+json
+{
+  "topic": "OpenAI GPT-4o capabilities and pricing",
+  "maxSources": 2
+}
+
+7. Click "Execute"
+
+8. General topic (should show searchSource: "WEB"):
+ POST http://localhost:8080/api/research/summarize 
+
+   {
+   "topic": "electric vehicle battery technology 2025",
+    "maxSources": 2
+    }
+
+OUTPUT:
+General Topic → Web Route
+```json
+{
+  "topic": "electric vehicle battery technology 2025",
+  "searchSource": "WEB",
+  "executiveSummary": "The EV market reached a critical inflection point...",
+  "keyFindings": [
+    "Global EV sales exceeded 18 million units in 2024",
+    "Battery costs fell below $100/kWh for the first time",
+    "Solid-state batteries approaching commercialisation"
+  ],
+  "details": "In 2025, EV battery technology is defined by...",
+  "sources": [
+    "https://about.bnef.com/electric-vehicle-outlook",
+    "https://www.reuters.com/technology/solid-state-batteries-2025"
+  ]
+}
+
+
+----------------- Architecture OVERVIEW ----------------------------
+
 POST /api/research/summarize
            │
            ▼
@@ -39,11 +115,36 @@ POST /api/research/summarize
                                                      │
                                                      ▼
                                           ResearchResponse (JSON)
-```
 
----
 
-## Agent Descriptions
+
+
+## Agent Descriptions---------------------
+You send a research topic -> 3 AI agents work together → You get a structured report.
+
+
+You type a topic
+      |
+Agent 1 (SearchAgent)
+  → Is it OpenAI-related? (checks keywords)
+  → YES → Searches OpenAI Docs (MCP Server)
+  → NO  → Searches the Web (Tavily)
+      |
+      
+Agent 2 (InsightExtractorAgent)
+  → Reads search results
+  → Extracts: facts, statistics, definitions, quotes
+  → Uses Claude Haiku AI
+      |
+      
+Agent 3 (ReportGeneratorAgent)
+  → Takes all insights
+  → Writes: Executive Summary + Key Findings + Details
+  → Uses Claude Sonnet AI
+      |
+      
+You get a clean JSON report 
+
 
 ### Agent 1 — SearchAgent (`agent/SearchAgent.java`)
 - **Classifies** the query as `OPENAI_DEV` or `GENERAL` using deterministic keyword matching
@@ -66,11 +167,11 @@ POST /api/research/summarize
 
 ---
 
-## Routing Logic (Critical Requirement)
+-------------------- Routing Logic (Critical Requirement)---------------------------------------------
 
 ### Algorithm
 
-```java
+java
 // SearchAgent.java — classifyQuery()
 public String classifyQuery(String topic) {
     String lower = topic.toLowerCase();
@@ -81,32 +182,18 @@ public String classifyQuery(String topic) {
     }
     return "GENERAL";              // → Tavily Web Search
 }
-```
 
-### Why Deterministic (Not LLM-Based)?
-| Approach | Latency | Cost | Reliability | Testable |
-|---|---|---|---|---|
-| ✅ Keyword matching (our approach) | ~0ms | Free | 100% deterministic | Fully unit-testable |
-| ❌ LLM classification | +500ms | API cost | Risk of hallucination | Hard to assert |
 
-### OpenAI Keywords (in `AppConfig.java`)
-| Group | Keywords |
-|---|---|
-| Brand | `openai`, `chatgpt`, `dall-e`, `whisper` |
-| Models | `gpt`, `gpt-4`, `gpt-3`, `gpt4o`, `o1`, `o3`, `o4` |
-| APIs | `openai api`, `completions api`, `responses api`, `assistants api`, `batch api` |
-| SDK/Tools | `agents sdk`, `openai sdk`, `function calling`, `structured outputs` |
-| Techniques | `fine-tuning`, `embeddings`, `vector store`, `moderation api` |
 
-### Routing Decision Table
+------------- Routing Decision Table----------------------------------------------------------------
 
-| Query | Classification | Primary | Fallback |
-|---|---|---|---|
-| "OpenAI GPT-4o capabilities" | OPENAI_DEV | MCP Server | Tavily |
-| "OpenAI assistants API tutorial" | OPENAI_DEV | MCP Server | Tavily |
-| "fine-tuning a language model" | OPENAI_DEV | MCP Server | Tavily |
-| "climate change 2025" | GENERAL | Tavily | — |
-| "Spring Boot microservices" | GENERAL | Tavily | — |
+| Query                            | Classification | Primary    | Fallback |
+
+| "OpenAI GPT-4o capabilities"     | OPENAI_DEV     | MCP Server | Tavily   |
+| "OpenAI assistants API tutorial" | OPENAI_DEV     | MCP Server | Tavily   |
+| "fine-tuning a language model"   | OPENAI_DEV     | MCP Server | Tavily   |
+| "climate change 2025"            | GENERAL        | Tavily     | —        |
+| "Spring Boot microservices"      | GENERAL        | Tavily     | —        |
 
 ---
 
@@ -116,7 +203,7 @@ public String classifyQuery(String topic) {
 research-summarizer-java/
 ├── src/
 │   ├── main/
-│   │   ├── java/com/skyflinx/researchsummarizer/
+│   │   ├── java/com/assesment/researchsummarizer/
 │   │   │   ├── ResearchSummarizerApplication.java   ← Entry point
 │   │   │   ├── agent/
 │   │   │   │   ├── SearchAgent.java                 ← Agent 1
@@ -146,72 +233,15 @@ research-summarizer-java/
 │   │       ├── application.properties
 │   │       └── logback-spring.xml                   ← Structured JSON logging
 │   └── test/
-│       └── java/com/skyflinx/researchsummarizer/
+│       └── java/com/assessment/researchsummarizer/
 │           └── ResearchSummarizerApplicationTests.java ← Unit tests
 ├── pom.xml
 ├── Dockerfile
 ├── docker-compose.yml
 └── README.md
-```
-
----
-
-## Setup Instructions
-
-### Prerequisites
-- Java 21+
-- Maven 3.8+
-- API keys: **Anthropic** and **Tavily** (free tier available)
-
-### 1. Clone the repository
-```bash
-git clone https://github.com/YOUR_USERNAME/research-summarizer-java.git
-cd research-summarizer-java
-```
-
-### 2. Set environment variables
-```bash
-export ANTHROPIC_API_KEY=sk-ant-...
-export TAVILY_API_KEY=tvly-...
-```
-
-### 3. Build the project
-```bash
-mvn clean package -DskipTests
-```
-
-### 4. Run the server
-```bash
-mvn spring-boot:run
-# Server starts at http://localhost:8080
-```
-
-### 5. Test with curl
-
-**OpenAI Developer Topic (MCP Route):**
-```bash
-curl -X POST http://localhost:8080/api/research/summarize \
-  -H "Content-Type: application/json" \
-  -d '{"topic": "OpenAI GPT-4o capabilities and pricing", "maxSources": 5}'
-```
-
-**General Topic (Web Search Route):**
-```bash
-curl -X POST http://localhost:8080/api/research/summarize \
-  -H "Content-Type: application/json" \
-  -d '{"topic": "electric vehicle battery technology 2025", "maxSources": 5}'
-```
-
-**Health check:**
-```bash
-curl http://localhost:8080/api/research/health
-```
-
----
 
 ## Docker Setup
 
-```bash
 # Build and run with Docker Compose
 export ANTHROPIC_API_KEY=sk-ant-...
 export TAVILY_API_KEY=tvly-...
@@ -264,7 +294,7 @@ docker-compose up --build
 
 ---
 
-## Running Tests
+---------------- Running Tests ---------------------------
 
 ```bash
 mvn test
@@ -290,7 +320,7 @@ Tests cover:
 ```bash
 curl -X POST http://localhost:8080/api/research/summarize \
   -H "Content-Type: application/json" \
-  -d '{"topic": "OpenAI Assistants API file search tool", "maxSources": 5}'
+  -d '{"topic": "OpenAI Assistants API file search tool", "maxSources": 2}'
 ```
 
 **Response:**
@@ -322,7 +352,7 @@ curl -X POST http://localhost:8080/api/research/summarize \
 ```bash
 curl -X POST http://localhost:8080/api/research/summarize \
   -H "Content-Type: application/json" \
-  -d '{"topic": "electric vehicle battery technology 2025", "maxSources": 5}'
+  -d '{"topic": "electric vehicle battery technology 2025", "maxSources": 2}'
 ```
 
 **Response:**
@@ -348,35 +378,35 @@ curl -X POST http://localhost:8080/api/research/summarize \
 
 ---
 
-## Design Decisions
+-------------------Design Decisions----------------------------------------------------------------------------------------
 
-### LLM Choice: Anthropic Claude
+ LLM Choice: Anthropic Claude
 - **Claude Haiku** for insight extraction — fast, cost-efficient, handles JSON well
 - **Claude Sonnet** for report generation — higher quality final output
 - Chosen over OpenAI to demonstrate provider-agnostic design
 
-### Framework: Spring Boot 3.3 with WebClient
+ Framework: Spring Boot 3.3 with WebClient------------------
 - `WebClient` (reactive) used for MCP and Tavily HTTP calls — non-blocking, timeout-safe
 - `@Valid` + Bean Validation for request validation
 - MDC (Mapped Diagnostic Context) for trace ID propagation across all log lines
 
-### MCP Transport: Streamable HTTP (JSON-RPC 2.0)
+ MCP Transport: Streamable HTTP (JSON-RPC 2.0)----------------
 - POST to `https://developers.openai.com/mcp` with JSON-RPC 2.0 payload
 - Handles both plain JSON and SSE (Server-Sent Events) response formats
 - Graceful fallback when MCP is unreachable or returns insufficient results
 
-### Structured Logging with Trace IDs
+ Structured Logging with Trace IDs----------------
 - Every request generates a unique 12-char hex trace ID
 - Injected into MDC at the controller level
 - Flows through all three agents via Spring's request context
 - Returned in error responses for debugging
 
-### Graceful Degradation
+ Graceful Degradation--------------------------------------------------
 - MCP insufficient results → fallback to Tavily (no hard failure)
 - LLM returns bad JSON → parsed with fallback to raw snippets
 - Every agent independently fault-tolerant
 
-### Demo Mode
+ Demo Mode-------------------------------------------------------------------
 - Runs when `ANTHROPIC_API_KEY` or `TAVILY_API_KEY` is not set
 - Still attempts the real OpenAI MCP server
 - Returns realistic mock data for demo/presentation purposes
